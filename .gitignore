@@ -1,0 +1,18 @@
+node_modules/
+.env
+*.log
+# video build intermediates
+video/seg_*.mp4
+video/part_*.mp4
+video/video*.mp4
+video/still_*.png
+video/*sheet*.png
+video/check*.png
+video/joins.png
+video/intro_check.png
+video/segs.txt
+video/intro/
+video/audio/*.wav
+video/audio/*.raw
+video/audio/*.f32
+video/audio/ln*.json

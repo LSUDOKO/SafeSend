@@ -1,0 +1,81 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#f5f5f2}
+*{box-sizing:border-box}
+#stage{position:absolute;inset:0;overflow:hidden;background:#f5f5f2;font-family:Geist,sans-serif;color:#0e0e10;-webkit-font-smoothing:antialiased}
+.a{position:absolute}
+</style></head>
+<body><div id="stage"></div>
+<script>
+const DURATION = 11.0;
+const C = { ui: "#0e0e10", lime: "#cdf24f", orange: "#ff6a2a", gray: "#8b8b92" };
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo3 = p => 1 - Math.pow(1 - p, 3);
+const eio3 = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+function spring(t, w = 12, z = 0.7) { if (t <= 0) return 0; const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+const stage = document.getElementById("stage");
+function el(p, css = "", html = "") { const e = document.createElement("div"); e.className = "a"; e.style.cssText = css; e.innerHTML = html; p.appendChild(e); return e; }
+function mline(p, x, y, w, h, html, css = "") { const m = el(p, `left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden`); const s = document.createElement("span");
+  s.style.cssText = "position:absolute;left:0;top:0;width:100%;white-space:nowrap;display:block;" + css; s.innerHTML = html; m.appendChild(s); return s; }
+const rise = (s, p) => { s.style.transform = `translateY(${(1 - p) * 112}%)`; };
+
+// real arXiv screenshots (1600x900 css px @1.5x) and measured phrase boxes (css px)
+const SHOTS = [
+  { src: "real/p1_agents.png", kicker: "The problem", head: `AI agents now <span style="background:${C.lime};padding:0 14px;border-radius:14px">pay on their own.</span>`,
+    cite: "Srivastava & Paul · Agentic Commerce Bench · 2026 · arXiv:2609.35886", lines: [[{ y: 187.5, x0: 40, x1: 615.8, h: 15 }]], focus: [330, 180] },
+  { src: "real/p2_poisoning.png", kicker: "Address poisoning", head: `<span style="background:${C.lime};padding:0 14px;border-radius:14px">$83.8M</span> stolen. 270M attacks.`,
+    cite: "Tsuchiya et al. · Blockchain Address Poisoning · USENIX Security 2025 · arXiv:2501.16681", lines: [[{ y: 271.9, x0: 346, x1: 615, h: 15 }], [{ y: 271.9, x0: 798.6, x1: 973.2, h: 15 }]], focus: [660, 255] },
+  { src: "real/p3_wallets.png", kicker: "Nobody warns you", head: `Only <span style="background:${C.lime};padding:0 14px;border-radius:14px">3 of 53</span> wallets warn you.`,
+    cite: "Guan & Li · Ethereum Crypto Wallets under Address Poisoning · 2025 · arXiv:2508.12107", lines: [[{ y: 314.1, x0: 926.8, x1: 1279.7, h: 15 }, { y: 335.2, x0: 40, x1: 331.7, h: 15 }]], focus: [660, 326], zoom: 1.04 },
+];
+const SEG = DURATION / SHOTS.length;          // 3.667 s per shot
+const FW = 1300, FH = 731, IMGW = 1600, BAR = 46;
+
+const shots = SHOTS.map((s, i) => {
+  const g = el(stage, "inset:0");
+  const kick = mline(g, 310, 64, 1500, 36, s.kicker, `font:600 24px Geist;letter-spacing:3px;text-transform:uppercase;color:${C.orange}`);
+  const head = mline(g, 310, 100, 1600, 92, s.head, `font:600 76px/92px Geist;letter-spacing:-2px`);
+  const frame = el(g, `left:${960 - FW / 2}px;top:228px;width:${FW}px;height:${FH + BAR}px;border-radius:22px;background:#fff;overflow:hidden;box-shadow:0 30px 90px rgba(14,14,16,.22);border:1px solid #e3e3de`);
+  el(frame, `left:0;top:0;width:100%;height:${BAR}px;background:#ececE8;border-bottom:1px solid #deded8`);
+  el(frame, `left:18px;top:16px;display:flex;gap:8px`, `<i style="width:13px;height:13px;border-radius:7px;background:#ff5f57;display:block"></i><i style="width:13px;height:13px;border-radius:7px;background:#febc2e;display:block"></i><i style="width:13px;height:13px;border-radius:7px;background:#28c840;display:block"></i>`);
+  el(frame, `left:110px;top:9px;width:520px;height:28px;border-radius:14px;background:#fff;font:500 15px/28px Geist;color:#55555c;padding-left:16px`, `arxiv.org/abs/${s.cite.split("arXiv:")[1]}`);
+  const view = el(frame, `left:0;top:${BAR}px;width:${FW}px;height:${FH}px;overflow:hidden`);
+  const world = el(view, `left:0;top:0;width:${IMGW}px;height:900px;transform-origin:0 0`);
+  const img = document.createElement("img"); img.src = s.src; img.style.cssText = `position:absolute;left:0;top:0;width:${IMGW}px;height:900px`; world.appendChild(img);
+  // dim everything, then the highlighter reveals the sentence
+  const dim = el(world, `left:0;top:0;width:${IMGW}px;height:900px;background:rgba(245,245,242,.0)`);
+  const marks = s.lines.flat().map(r => { const m = el(world, `left:${r.x0 - 4}px;top:${r.y - 2}px;height:${r.h + 5}px;width:0;background:${C.lime};overflow:hidden;border-radius:3px;z-index:2`);
+    const im = document.createElement("img"); im.src = s.src; im.style.cssText = `position:absolute;left:${-(r.x0 - 4)}px;top:${-(r.y - 2)}px;width:${IMGW}px;height:900px;mix-blend-mode:multiply;max-width:none`; m.appendChild(im); return m; });
+  const cite = mline(g, 310, 1022, 1600, 30, s.cite, `font:500 19px 'Geist Mono',monospace;color:${C.gray}`);
+  return { g, kick, head, frame, world, dim, marks, cite, s };
+});
+
+function seek(t) {
+  shots.forEach((o, i) => {
+    const a = i * SEG, lt = t - a;
+    const on = t >= a - 0.6 && t < a + SEG + 0.05;
+    o.g.style.display = on ? "block" : "none"; if (!on) return;
+    // frame enters from below, exits upward as the next one arrives
+    const enter = i === 0 ? spring(lt, 9, 0.8) : eio3(prog(lt, -0.55, 0.05));
+    const exit = i === SHOTS.length - 1 ? 0 : eio3(prog(lt, SEG - 0.55, SEG + 0.05));
+    o.frame.style.transform = `translateY(${(1 - enter) * 900 - exit * 1000}px)`;
+    rise(o.kick, eo3(prog(lt, 0.05, 0.45)) - exit); rise(o.head, eo3(prog(lt, 0.2, 0.65)) - exit); rise(o.cite, eo3(prog(lt, 0.5, 0.9)) - exit);
+    // camera: one eased push into the sentence
+    const p = eio3(prog(lt, 0.35, 1.6)), z = lerp(FW / IMGW, o.s.zoom || 1.7, p);
+    const fx = lerp(IMGW / 2, o.s.focus[0], p), fy = lerp(450, o.s.focus[1], p);
+    o.world.style.transform = `translate(${FW / 2 - fx * z}px,${FH / 2 - fy * z}px) scale(${z})`;
+    o.dim.style.background = `rgba(245,245,242,${0.55 * eo3(prog(lt, 1.4, 1.9))})`;
+    // highlighter sweeps line by line
+    let start = 1.55;
+    o.s.lines.flat().forEach((r, k) => { const w = r.x1 - r.x0 + 8, d = Math.max(0.28, w / 900);
+      o.marks[k].style.width = (w * eio3(prog(lt, start, start + d))) + "px"; o.marks[k].style.zIndex = 2; start += d + 0.05; });
+  });
+}
+window.seek = seek; window.DURATION = DURATION;
+window.ready = Promise.all([document.fonts.ready, ...[...document.images].map(i => i.decode().catch(() => {}))]).then(() => { seek(0); return true; });
+</script></body></html>

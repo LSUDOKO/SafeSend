@@ -1,0 +1,215 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#f5f5f2}
+*{box-sizing:border-box}
+#stage{position:absolute;inset:0;overflow:hidden;background:#f5f5f2;font-family:Geist,sans-serif;color:#0e0e10;-webkit-font-smoothing:antialiased}
+.a{position:absolute}
+.scene{position:absolute;inset:0;display:none;overflow:hidden}
+.mask{position:absolute;overflow:hidden}
+.mask>span{display:block;white-space:nowrap}
+.mono{font-family:'Geist Mono',monospace}
+.cap{font:600 22px Geist;letter-spacing:2.5px;text-transform:uppercase}
+.pill{display:inline-flex;align-items:center;height:44px;padding:0 20px;border-radius:22px;font:700 18px Geist;letter-spacing:.5px}
+</style></head>
+<body><div id="stage"></div>
+<script>
+// ---------- constants ----------
+const B = 60 / 130;                 // beat
+const DROP = 32 * B;                // song drop lands at 14.77 s (song starts 14.86 s in)
+const DURATION = 60.0;
+const C = { canvas: "#f5f5f2", ui: "#0e0e10", lime: "#cdf24f", orange: "#ff6a2a", blue: "#2f6bff", gray: "#8b8b92", line: "#e7e7e2" };
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eo3 = p => 1 - Math.pow(1 - p, 3);
+const eio3 = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+function spring(t, w = 15, z = 0.6) { if (t <= 0) return 0; const wd = w * Math.sqrt(1 - z * z);
+  return 1 - Math.exp(-z * w * t) * (Math.cos(wd * t) + (z * w / wd) * Math.sin(wd * t)); }
+const stage = document.getElementById("stage");
+function el(p, css = "", html = "") { const e = document.createElement("div"); e.className = "a"; e.style.cssText = css; e.innerHTML = html; p.appendChild(e); return e; }
+function mline(p, x, y, w, h, html, css = "") { const m = el(p, `left:${x}px;top:${y}px;width:${w}px;height:${h}px;overflow:hidden`); const s = document.createElement("span");
+  s.style.cssText = "position:absolute;left:0;top:0;width:100%;white-space:nowrap;display:block;" + css; s.innerHTML = html; m.appendChild(s); return s; }
+const rise = (s, p) => { s.style.transform = `translateY(${(1 - p) * 112}%)`; };
+const SHIELD = "M0,-50 C14,-42 28,-38 40,-38 C40,0 30,32 0,52 C-30,32 -40,0 -40,-38 C-28,-38 -14,-42 0,-50 Z";
+const mark = (size, fill = C.orange, ck = C.ui) => `<svg width="${size}" height="${size}" viewBox="-60 -60 120 120" style="display:block;overflow:visible"><path d="${SHIELD}" fill="${fill}"/><path class="ck" d="M-18,2 L-5,15 L19,-12" stroke="${ck}" stroke-width="10" fill="none" stroke-linecap="round" stroke-linejoin="round" pathLength="1" stroke-dasharray="1"/></svg>`;
+const CK = (c, px) => `<svg width="${px}" height="${px}" viewBox="0 0 24 24" style="display:inline-block;vertical-align:-3px"><path d="M4.5,12.5 L9.5,17.5 L19.5,6.5" stroke="${c}" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+const SCENES = [];
+function scene(a, b, build) { const r = el(stage, "inset:0", ""); r.className = "scene"; const s = { a, b, r }; s.u = build(r); SCENES.push(s); }
+
+// ===== 1 · PROBLEM: agents pay now =====
+scene(0, 5.3, r => {
+  const k = mline(r, 160, 300, 1600, 40, "The problem", `font:600 24px Geist;letter-spacing:3px;text-transform:uppercase;color:${C.orange}`);
+  const l1 = mline(r, 160, 360, 1700, 130, "AI agents can now", `font:600 112px Geist;letter-spacing:-3px`);
+  const l2 = mline(r, 160, 480, 1700, 130, `pay <span style="background:${C.lime};padding:0 18px;border-radius:20px">for you.</span>`, `font:600 112px Geist;letter-spacing:-3px`);
+  const l3 = mline(r, 160, 680, 1700, 70, "And they copy addresses without looking.", `font:500 52px Geist;color:${C.gray}`);
+  return t => { rise(k, eo3(prog(t, 0.2, 0.6))); rise(l1, eo3(prog(t, 0.4, 0.9))); rise(l2, eo3(prog(t, 0.7, 1.2))); rise(l3, eo3(prog(t, 2.2, 2.7))); };
+});
+
+// ===== 2 · PROBLEM: address poisoning on a phone =====
+scene(5.3, 11.0, r => {
+  const phone = el(r, `left:240px;top:120px;width:450px;height:900px;border-radius:60px;background:${C.ui};padding:11px`);
+  const scr = el(phone, `left:11px;top:11px;width:428px;height:878px;border-radius:49px;background:#fff;overflow:hidden`);
+  el(scr, `left:28px;top:16px;font:600 15px Geist`, "9:41");
+  el(scr, `left:152px;top:10px;width:124px;height:34px;border-radius:20px;background:${C.ui}`);
+  el(scr, `left:24px;top:70px;font:700 26px Geist`, "Recent activity");
+  const rows = [["Acme", "0xd8da…6045", "−40 USDC", false], ["", "0xd8da…6045", "0 USDC", true], ["Coffee", "0x51c2…a19e", "−4 USDC", false], ["", "0x9f02…77b1", "+120 USDC", false]];
+  const rowEls = rows.map((x, i) => el(scr, `left:16px;top:${130 + i * 86}px;width:396px;height:72px;border-radius:18px;background:#f4f4f1;display:flex;align-items:center;padding:0 16px;gap:12px`,
+    `<div style="width:40px;height:40px;border-radius:20px;background:${x[3] ? C.orange : C.ui}"></div><div><div class="mono" style="font-size:16px">${x[1]}</div><div style="font:400 13px Geist;color:${C.gray}">${x[0] || "unknown"}</div></div><div style="margin-left:auto;font:600 15px Geist">${x[2]}</div>`));
+  const k = mline(r, 820, 200, 1000, 40, "Address poisoning", `font:600 24px Geist;letter-spacing:3px;text-transform:uppercase;color:${C.orange}`);
+  const h = mline(r, 820, 250, 1000, 150, "Two payees.<br>One is a scammer.", `font:600 72px/1.05 Geist;letter-spacing:-2px;white-space:normal`);
+  h.parentElement.style.height = "170px";
+  const a1 = el(r, `left:820px;top:480px;width:960px;height:96px;border-radius:24px;background:${C.ui};color:#fff;display:flex;align-items:center;padding:0 30px;gap:20px`,
+    `<span style="font:600 16px Geist;color:#8b8b92;width:110px">ACME</span><span class="mono" style="font-size:25px"><span style="color:${C.lime}">0xd8dA</span>6BF26964aF9D7eEd9e03E53415D37a<span style="color:${C.lime}">A96045</span></span>`);
+  const a2 = el(r, `left:820px;top:596px;width:960px;height:96px;border-radius:24px;background:${C.ui};color:#fff;display:flex;align-items:center;padding:0 30px;gap:20px`,
+    `<span style="font:600 16px Geist;color:#8b8b92;width:110px">ATTACKER</span><span class="mono" style="font-size:25px"><span style="color:${C.lime}">0xd8da</span><span style="color:${C.orange}">1a5f0000000000000000000000000</span><span style="color:${C.lime}">0a96045</span></span>`);
+  const note = mline(r, 820, 730, 1000, 50, "Same first 4 and last 6 characters. A 0 USDC transfer planted it in your history.", `font:500 26px Geist;color:${C.gray}`);
+  return t => {
+    phone.style.transform = `translateY(${(1 - spring(t, 9, 0.7)) * 700}px)`;
+    rowEls.forEach((e, i) => { const p = spring(t - 0.5 - i * 0.12, 16, 0.6); e.style.transform = `translateX(${(1 - p) * 60}px)`; e.style.opacity = clamp(p * 2); });
+    const hl = eo3(prog(t, 1.4, 1.8)); rowEls[0].style.boxShadow = rowEls[1].style.boxShadow = `0 0 0 ${3 * hl}px ${C.orange}`;
+    rise(k, eo3(prog(t, 0.8, 1.2))); rise(h, eo3(prog(t, 1.0, 1.5)));
+    [a1, a2].forEach((e, i) => { const p = spring(t - 2.2 - i * 0.35, 14, 0.62); e.style.transform = `translateY(${(1 - p) * 40}px) scale(${0.96 + 0.04 * p})`; e.style.opacity = clamp(p * 2); });
+    rise(note, eo3(prog(t, 3.4, 3.9)));
+  };
+});
+
+// ===== 3 · PROBLEM: research =====
+scene(11.0, DROP, r => {
+  const stats = [["$83.8M+", "stolen by address poisoning · 270M attacks, 17M victims", "Tsuchiya et al. 2025 · arXiv:2501.16681"],
+                 ["3 of 53", "wallets warn before you pay a phishing address", "Guan & Li 2025 · arXiv:2508.12107"]];
+  const cards = stats.map((s, i) => el(r, `left:${160 + i * 820}px;top:330px;width:780px;height:400px;border-radius:36px;background:${C.ui};color:#fff;padding:50px 54px`,
+    `<div style="font:700 120px Geist;letter-spacing:-4px;color:${i ? C.lime : C.orange}">${s[0]}</div><div style="font:500 32px/1.3 Geist;margin-top:10px;width:660px">${s[1]}</div>
+     <div class="mono" style="position:absolute;left:54px;bottom:40px;font-size:18px;color:#8b8b92">${s[2]}</div>`));
+  const k = mline(r, 160, 240, 1600, 40, "Peer-reviewed research", `font:600 24px Geist;letter-spacing:3px;text-transform:uppercase;color:${C.orange}`);
+  return t => { rise(k, eo3(prog(t, 0.1, 0.5))); cards.forEach((c, i) => { const p = spring(t - 0.3 - i * 0.45, 13, 0.62); c.style.transform = `translateY(${(1 - p) * 120}px)`; c.style.opacity = clamp(p * 2); }); };
+});
+
+// ===== 4 · DROP: meet SafeSend =====
+scene(DROP, DROP + 4.6, r => {
+  const flood = el(r, `border-radius:50%;background:${C.lime}`);
+  const m = el(r, `left:885px;top:240px;width:150px;height:150px`, mark(150));
+  const w = mline(r, 0, 420, 1920, 150, `Meet SafeSend`, `font:600 132px Geist;letter-spacing:-4px;text-align:center`);
+  const s = mline(r, 0, 600, 1920, 60, `PayBox checks <b>what</b> you sign. SafeSend checks <b>who</b> you pay.`, `font:500 42px Geist;text-align:center`);
+  const ck = m.querySelector(".ck");
+  return t => {
+    const R = eio3(prog(t, 0, 0.35)) * 1150; flood.style.left = 960 - R + "px"; flood.style.top = 540 - R + "px"; flood.style.width = flood.style.height = 2 * R + "px";
+    const p = spring(t - 0.25, 13, 0.55); m.style.transform = `scale(${p})`; ck.style.strokeDashoffset = 1 - eo3(prog(t, 0.5, 0.9));
+    rise(w, eo3(prog(t, 0.45, 0.95))); rise(s, eo3(prog(t, 1.2, 1.7)));
+  };
+});
+
+// ===== real footage: browser frame with camera =====
+function browser(r, src, url) {
+  const W = 1568, H = 722, k = 1.0;
+  const frame = el(r, `left:${960 - W * k / 2}px;top:${560 - (H * k + 52) / 2}px;width:${W * k}px;height:${H * k + 52}px;border-radius:22px;background:#1b1b1d;overflow:hidden;box-shadow:0 40px 100px rgba(14,14,16,.35)`);
+  el(frame, `left:20px;top:18px;display:flex;gap:9px`, `<i style="width:14px;height:14px;border-radius:7px;background:#ff5f57;display:block"></i><i style="width:14px;height:14px;border-radius:7px;background:#febc2e;display:block"></i><i style="width:14px;height:14px;border-radius:7px;background:#28c840;display:block"></i>`);
+  const bar = el(frame, `left:120px;top:12px;width:560px;height:28px;border-radius:14px;background:#2a2a2d;font:500 15px/28px Geist;color:#c9c9cf;padding-left:16px`, url);
+  const view = el(frame, `left:0;top:52px;width:${W * k}px;height:${H * k}px;overflow:hidden`);
+  const imgs = src.map(s => { const i = document.createElement("img"); i.src = s; i.style.cssText = `position:absolute;left:0;top:0;width:${W}px;height:${H}px;transform-origin:0 0;display:none`; view.appendChild(i); return i; });
+  // focus(x0,y0,x1,y1) in screenshot pixels -> camera
+  const cam = (fx, fy, z) => `scale(${k * z}) translate(${-(fx - W / (2 * z))}px,${-(fy - H / (2 * z))}px)`;
+  return { frame, imgs, bar, cam, k, W, H };
+}
+const capStyle = `font:600 22px Geist;letter-spacing:2.5px;text-transform:uppercase`;
+function caption(r, a, b) {
+  const tag = mline(r, 120, 64, 1100, 40, a, capStyle + `;color:${C.orange}`);
+  const ttl = mline(r, 120, 104, 1700, 70, b, `font:600 50px Geist;letter-spacing:-1.2px`);
+  return t => { rise(tag, eo3(prog(t, 0.15, 0.55))); rise(ttl, eo3(prog(t, 0.3, 0.75))); };
+}
+
+// ===== 5 · REAL: PayBox plugins page =====
+scene(DROP + 4.6, DROP + 10.2, r => {
+  const cap = caption(r, "Live in PayBox", "SafeSend is installed and enabled");
+  const b = browser(r, ["real/01_paybox_plugins.jpg"], "app.paybox.sh/plugins");
+  const ring = el(b.frame, `border:5px solid ${C.lime};border-radius:20px;box-shadow:0 0 0 9999px rgba(14,14,16,0)`);
+  return t => {
+    cap(t); const p = spring(t - 0.1, 9, 0.75); b.frame.style.transform = `translateY(${(1 - p) * 500}px)`; b.frame.style.top = "240px";
+    b.imgs[0].style.display = "block";
+    const z = lerp(1, 1.7, eio3(prog(t, 1.6, 3.4)));
+    const fx = lerp(784, 880, eio3(prog(t, 1.6, 3.4))), fy = lerp(361, 640, eio3(prog(t, 1.6, 3.4)));
+    b.imgs[0].style.transform = b.cam(fx, fy, z);
+    // highlight the SafeSend row (screenshot box 488,634 -> 1272,742)
+    const hp = eo3(prog(t, 3.4, 3.9)); ring.style.display = hp > 0 ? "block" : "none";
+    const sx = (x) => (x - (fx - b.W / (2 * z))) * b.k * z, sy = (y) => (y - (fy - b.H / (2 * z))) * b.k * z + 52;
+    ring.style.left = sx(482) + "px"; ring.style.top = sy(628) + "px"; ring.style.width = (sx(1278) - sx(482)) + "px"; ring.style.height = (sy(748) - sy(628)) + "px";
+    ring.style.opacity = hp; ring.style.transform = `scale(${1.04 - 0.04 * hp})`;
+  };
+});
+
+// ===== 6 · REAL: Claude checks a tampered invoice =====
+scene(DROP + 10.2, DROP + 22.6, r => {
+  const cap = caption(r, "Real · Claude → PayBox MCP → SafeSend", "Claude checks a tampered invoice");
+  const b = browser(r, ["real/02_prompt.jpg", "real/03_discover.jpg", "real/04_use_plugin.jpg", "real/05_block_invoice.jpg"], "claude.ai");
+  const ring = el(b.frame, `border:5px solid ${C.lime};border-radius:16px`);
+  const steps = [0, 2.2, 4.4, 6.6];
+  return t => {
+    cap(t); b.frame.style.top = "240px";
+    const i = steps.reduce((acc, s, j) => t >= s ? j : acc, 0);
+    b.imgs.forEach((im, j) => im.style.display = j === i ? "block" : "none");
+    let z = 1, fx = 784, fy = 361;
+    if (i === 0) { z = lerp(1, 1.55, eio3(prog(t, 0.4, 1.8))); fx = 902; fy = 345; }
+    if (i === 1 || i === 2) { z = 1.35; fx = 900; fy = 210; }
+    if (i === 3) { const p = eio3(prog(t, 7.4, 8.8)); z = lerp(1.0, 1.55, p); fx = lerp(784, 880, p); fy = lerp(361, 470, p); }
+    b.imgs[i].style.transform = b.cam(fx, fy, z);
+    const hp = i === 3 ? eo3(prog(t, 8.9, 9.4)) : 0; ring.style.display = hp > 0 ? "block" : "none";
+    const sx = x => (x - (fx - b.W / (2 * z))) * b.k * z, sy = y => (y - (fy - b.H / (2 * z))) * b.k * z + 52;
+    ring.style.left = sx(592) + "px"; ring.style.top = sy(336) + "px"; ring.style.width = (sx(1166) - sx(592)) + "px"; ring.style.height = (sy(516) - sy(336)) + "px"; ring.style.opacity = hp;
+  };
+});
+
+// ===== 7 · REAL: Claude screens a sanctioned wallet =====
+scene(DROP + 22.6, DROP + 31.8, r => {
+  const cap = caption(r, "Real · Claude → PayBox MCP → SafeSend", "Claude screens a sanctioned wallet");
+  const b = browser(r, ["real/06_sanctions_call.jpg", "real/07_sanctions_block.jpg"], "claude.ai");
+  const ring = el(b.frame, `border:5px solid ${C.orange};border-radius:16px`);
+  return t => {
+    cap(t); b.frame.style.top = "240px";
+    const i = t < 2.0 ? 0 : 1; b.imgs.forEach((im, j) => im.style.display = j === i ? "block" : "none");
+    let z = 1.3, fx = 900, fy = 140;
+    if (i === 1) { const p = eio3(prog(t, 2.6, 4.0)); z = lerp(1.0, 1.6, p); fx = lerp(784, 880, p); fy = lerp(361, 290, p); }
+    b.imgs[i].style.transform = b.cam(fx, fy, z);
+    const hp = i === 1 ? eo3(prog(t, 4.1, 4.6)) : 0; ring.style.display = hp > 0 ? "block" : "none";
+    const sx = x => (x - (fx - b.W / (2 * z))) * b.k * z, sy = y => (y - (fy - b.H / (2 * z))) * b.k * z + 52;
+    ring.style.left = sx(592) + "px"; ring.style.top = sy(176) + "px"; ring.style.width = (sx(1166) - sx(592)) + "px"; ring.style.height = (sy(296) - sy(176)) + "px"; ring.style.opacity = hp;
+  };
+});
+
+// ===== 8 · every check (dark cards on lime) =====
+scene(DROP + 31.8, DROP + 38.0, r => {
+  el(r, `inset:0;background:${C.lime}`);
+  const k = mline(r, 120, 80, 1600, 40, "Every check, real outputs", capStyle);
+  const CARDS = [["Lookalike address", "first 4 + last 6 chars match", "BLOCK"], ["Tampered invoice", "two payees in one request", "BLOCK"], ["OFAC sanctions", "Chainalysis oracle on Base", "BLOCK"],
+                 ["Fake-token invoice", "not real Base USDC", "BLOCK"], ["Spoofed Basename", "Cyrillic “е” in jеsse.base.eth", "BLOCK"], ["New payee", "confirm with a one-time code", "CAUTION"]];
+  const cards = CARDS.map((c, i) => el(r, `left:${120 + (i % 3) * 570}px;top:${200 + Math.floor(i / 3) * 400}px;width:540px;height:370px;border-radius:30px;background:${C.ui};color:#fff;padding:40px 42px`,
+    `<div style="font:600 36px Geist;letter-spacing:-.5px">${c[0]}</div><div style="font:400 24px/1.35 Geist;color:#9a9aa0;margin-top:14px">${c[1]}</div>
+     <span class="pill" style="position:absolute;left:42px;bottom:40px;background:${c[2] === "BLOCK" ? C.orange : "#ffb020"};color:${C.ui}">${c[2]}</span>`));
+  return t => { rise(k, eo3(prog(t, 0.1, 0.5))); cards.forEach((c, i) => { const p = spring(t - 0.15 - i * 0.12, 13, 0.6); c.style.transform = `scale(${0.3 + 0.7 * p})`; c.style.opacity = clamp(p * 2); }); };
+});
+
+// ===== 9 · outro =====
+scene(DROP + 38.0, DURATION + 1, r => {
+  el(r, `inset:0;background:${C.ui}`);
+  const w1 = mline(r, 0, 300, 1920, 116, "Your agent almost paid a scammer.", `font:600 88px Geist;color:#fff;text-align:center;letter-spacing:-2px`);
+  const w2 = mline(r, 0, 420, 1920, 116, `<span style="color:${C.lime}">SafeSend</span> caught it.`, `font:600 88px Geist;color:#fff;text-align:center;letter-spacing:-2px`);
+  const m = el(r, `left:640px;top:420px;width:130px;height:130px`, mark(130));
+  const word = mline(r, 800, 410, 700, 160, "SafeSend", `font:400 150px 'Instrument Serif',serif;color:#fff`);
+  const sub = mline(r, 804, 380, 900, 40, "built for PayBox · MoonPay Hackathon", `font:500 28px Geist;color:#9a9aa0`);
+  const tag = mline(r, 0, 650, 1920, 60, "PayBox checks what you sign. SafeSend checks who you pay.", `font:500 36px Geist;color:#cfcfd4;text-align:center`);
+  const ck = m.querySelector(".ck");
+  return t => {
+    const out = eio3(prog(t, 3.2, 3.6));
+    rise(w1, eo3(prog(t, 0.2, 0.7)) - out); rise(w2, eo3(prog(t, 1.0, 1.5)) - out);
+    const p = spring(t - 3.7, 13, 0.55); m.style.transform = `scale(${Math.max(0, p)})`; ck.style.strokeDashoffset = 1 - eo3(prog(t, 4.0, 4.4));
+    rise(word, eo3(prog(t, 4.2, 4.8))); rise(sub, eo3(prog(t, 4.6, 5.1))); rise(tag, eo3(prog(t, 5.0, 5.6)));
+  };
+});
+
+function seek(t) {
+  for (const s of SCENES) { const on = t >= s.a && t < s.b; s.r.style.display = on ? "block" : "none"; if (on) s.u(t - s.a); }
+}
+window.seek = seek; window.DURATION = DURATION;
+window.ready = Promise.all([document.fonts.ready, ...[...document.images].map(i => i.decode().catch(() => {}))]).then(() => { seek(0); return true; });
+</script></body></html>
